@@ -1,0 +1,242 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="SurfaceAIStudio.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Surface AI Studio">
+    <Grid x:Name="Root" Background="{StaticResource StudioBgBrush}" Loaded="Root_Loaded">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="52" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="36" />
+        </Grid.RowDefinitions>
+        <Grid.KeyboardAccelerators>
+            <KeyboardAccelerator Key="O" Modifiers="Control" Invoked="OpenShortcut" />
+            <KeyboardAccelerator Key="S" Modifiers="Control" Invoked="SaveShortcut" />
+            <KeyboardAccelerator Key="Z" Modifiers="Control" Invoked="UndoShortcut" />
+            <KeyboardAccelerator Key="Y" Modifiers="Control" Invoked="RedoShortcut" />
+        </Grid.KeyboardAccelerators>
+
+        <Grid Grid.Row="0" Background="{StaticResource StudioPanelBrush}" BorderBrush="{StaticResource StudioLineBrush}" BorderThickness="0,0,0,1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <Grid x:Name="TitleDrag" Background="Transparent" Padding="18,0,12,0">
+                <StackPanel VerticalAlignment="Center" Spacing="2">
+                    <TextBlock Text="Surface AI Studio" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource StudioTextBrush}" />
+                    <TextBlock x:Name="TitleText" Text="Offline on the Hexagon NPU" FontSize="12" Foreground="{StaticResource StudioMutedBrush}" />
+                </StackPanel>
+            </Grid>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="0,0,12,0">
+                <Button Content="Open" Style="{StaticResource QuietButtonStyle}" Click="Open_Click" />
+                <Button x:Name="SaveButton" Content="Save" Style="{StaticResource QuietButtonStyle}" Click="Save_Click" />
+                <Button x:Name="UndoButton" Content="Undo" Style="{StaticResource QuietButtonStyle}" Click="Undo_Click" />
+                <Button x:Name="RedoButton" Content="Redo" Style="{StaticResource QuietButtonStyle}" Click="Redo_Click" />
+                <ToggleButton x:Name="CompareButton" Content="Original" Padding="12,8" CornerRadius="8" Click="Compare_Click" />
+            </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="104" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="340" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Background="{StaticResource StudioPanelBrush}" BorderBrush="{StaticResource StudioLineBrush}" BorderThickness="0,0,1,0">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Padding="0,8,0,12">
+                        <RadioButton GroupName="StudioTool" Tag="Adjust" Style="{StaticResource ToolButtonStyle}" Checked="Tool_Checked" Content="Adjust" />
+                        <RadioButton GroupName="StudioTool" Tag="Crop" Style="{StaticResource ToolButtonStyle}" Checked="Tool_Checked" Content="Crop" />
+                        <RadioButton GroupName="StudioTool" Tag="Upscale" Style="{StaticResource ToolButtonStyle}" Checked="Tool_Checked" Content="Upscale" />
+                        <RadioButton GroupName="StudioTool" Tag="Cutout" Style="{StaticResource ToolButtonStyle}" Checked="Tool_Checked" Content="Cutout" />
+                        <RadioButton GroupName="StudioTool" Tag="Select" Style="{StaticResource ToolButtonStyle}" Checked="Tool_Checked" Content="Select" />
+                        <RadioButton GroupName="StudioTool" Tag="Erase" Style="{StaticResource ToolButtonStyle}" Checked="Tool_Checked" Content="Erase" />
+                        <RadioButton GroupName="StudioTool" Tag="Describe" Style="{StaticResource ToolButtonStyle}" Checked="Tool_Checked" Content="Describe" />
+                        <RadioButton GroupName="StudioTool" Tag="Text" Style="{StaticResource ToolButtonStyle}" Checked="Tool_Checked" Content="Text" />
+                        <RadioButton GroupName="StudioTool" Tag="Create" Style="{StaticResource ToolButtonStyle}" Checked="Tool_Checked" Content="Create" />
+                        <RadioButton GroupName="StudioTool" Tag="Motion" Style="{StaticResource ToolButtonStyle}" Checked="Tool_Checked" Content="Motion" />
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+
+            <Grid x:Name="Stage" Grid.Column="1" Background="#FF0C0E12" AllowDrop="True" DragOver="Stage_DragOver" Drop="Stage_Drop" SizeChanged="Stage_SizeChanged">
+                <StackPanel x:Name="EmptyState" VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8" IsHitTestVisible="False">
+                    <TextBlock Text="Drop a photo here" FontSize="28" FontWeight="SemiBold" HorizontalAlignment="Center" Foreground="{StaticResource StudioTextBrush}" />
+                    <TextBlock Text="or open one. Generation can start from a prompt, with no picture." FontSize="14" HorizontalAlignment="Center" Foreground="{StaticResource StudioMutedBrush}" TextWrapping="Wrap" MaxWidth="420" TextAlignment="Center" />
+                </StackPanel>
+                <Grid x:Name="Frame" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed">
+                    <Image x:Name="PhotoView" Stretch="Fill" />
+                    <Image x:Name="MaskView" Stretch="Fill" IsHitTestVisible="False" />
+                    <Canvas x:Name="GestureLayer" Background="Transparent" PointerPressed="Gesture_Pressed" PointerMoved="Gesture_Moved" PointerReleased="Gesture_Released" PointerCaptureLost="Gesture_Released">
+                        <Rectangle x:Name="CropRect" Stroke="{StaticResource StudioAccentBrush}" StrokeThickness="2" Fill="#40E2A56B" Visibility="Collapsed" IsHitTestVisible="False" />
+                    </Canvas>
+                </Grid>
+                <Grid x:Name="BusyLayer" Background="#C0101216" Visibility="Collapsed">
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="14">
+                        <ProgressRing IsActive="True" Width="52" Height="52" Foreground="{StaticResource StudioAccentBrush}" />
+                        <TextBlock x:Name="BusyText" Text="Working on the NPU…" FontSize="16" Foreground="{StaticResource StudioTextBrush}" HorizontalAlignment="Center" />
+                    </StackPanel>
+                </Grid>
+            </Grid>
+
+            <Border Grid.Column="2" Background="{StaticResource StudioPanelBrush}" BorderBrush="{StaticResource StudioLineBrush}" BorderThickness="1,0,0,0">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="20,18,20,24">
+                    <StackPanel Spacing="14">
+                        <InfoBar x:Name="Notice" IsOpen="False" IsClosable="True" />
+
+                        <StackPanel x:Name="PanelHome" Spacing="12">
+                            <TextBlock Text="Studio" FontSize="22" FontWeight="SemiBold" />
+                            <TextBlock TextWrapping="Wrap" Foreground="{StaticResource StudioMutedBrush}" Text="Edits stay on this Surface. Adjust, crop, and color run here. Upscale, cutout, erase, description, text, and image generation use the Hexagon NPU through Windows AI." />
+                            <TextBlock Text="On-device models" FontWeight="SemiBold" Margin="0,8,0,0" />
+                            <ItemsControl x:Name="ModelList">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Padding="0,4">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{Binding Name}" />
+                                            <TextBlock Grid.Column="1" Text="{Binding State}" Opacity="0.7" Margin="12,0,0,0" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+
+                        <StackPanel x:Name="PanelAdjust" Spacing="8" Visibility="Collapsed">
+                            <TextBlock Text="Adjust" Style="{StaticResource BodyStrongTextBlockStyle}" FontSize="22" />
+                            <TextBlock Text="Brightness" Foreground="{StaticResource StudioMutedBrush}" />
+                            <Slider x:Name="BrightnessSlider" Minimum="-100" Maximum="100" ValueChanged="Adjust_Changed" />
+                            <TextBlock Text="Contrast" Foreground="{StaticResource StudioMutedBrush}" />
+                            <Slider x:Name="ContrastSlider" Minimum="-100" Maximum="100" ValueChanged="Adjust_Changed" />
+                            <TextBlock Text="Saturation" Foreground="{StaticResource StudioMutedBrush}" />
+                            <Slider x:Name="SaturationSlider" Minimum="-100" Maximum="100" ValueChanged="Adjust_Changed" />
+                            <TextBlock Text="Warmth" Foreground="{StaticResource StudioMutedBrush}" />
+                            <Slider x:Name="TemperatureSlider" Minimum="-100" Maximum="100" ValueChanged="Adjust_Changed" />
+                            <TextBlock Text="Fade" Foreground="{StaticResource StudioMutedBrush}" />
+                            <Slider x:Name="FadeSlider" Minimum="0" Maximum="100" ValueChanged="Adjust_Changed" />
+                            <TextBlock Text="Vignette" Foreground="{StaticResource StudioMutedBrush}" />
+                            <Slider x:Name="VignetteSlider" Minimum="0" Maximum="100" ValueChanged="Adjust_Changed" />
+                            <TextBlock Text="Sharpness" Foreground="{StaticResource StudioMutedBrush}" />
+                            <Slider x:Name="SharpnessSlider" Minimum="0" Maximum="100" ValueChanged="Adjust_Changed" />
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Content="Neutral" Style="{StaticResource QuietButtonStyle}" Click="Preset_Click" Tag="Neutral" />
+                                <Button Content="Mono" Style="{StaticResource QuietButtonStyle}" Click="Preset_Click" Tag="Mono" />
+                                <Button Content="Warm" Style="{StaticResource QuietButtonStyle}" Click="Preset_Click" Tag="Warm" />
+                                <Button Content="Cool" Style="{StaticResource QuietButtonStyle}" Click="Preset_Click" Tag="Cool" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Content="Fade" Style="{StaticResource QuietButtonStyle}" Click="Preset_Click" Tag="Fade" />
+                                <Button Content="Punch" Style="{StaticResource QuietButtonStyle}" Click="Preset_Click" Tag="Punch" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Content="Rotate" Style="{StaticResource QuietButtonStyle}" Click="Rotate_Click" />
+                                <Button Content="Flip H" Style="{StaticResource QuietButtonStyle}" Click="FlipH_Click" />
+                                <Button Content="Flip V" Style="{StaticResource QuietButtonStyle}" Click="FlipV_Click" />
+                            </StackPanel>
+                            <Button Content="Apply look" Style="{StaticResource AccentButtonStyle}" Click="ApplyAdjust_Click" />
+                        </StackPanel>
+
+                        <StackPanel x:Name="PanelCrop" Spacing="10" Visibility="Collapsed">
+                            <TextBlock Text="Crop" FontSize="22" FontWeight="SemiBold" />
+                            <TextBlock Text="Drag a rectangle on the photo." TextWrapping="Wrap" Foreground="{StaticResource StudioMutedBrush}" />
+                            <TextBlock x:Name="CropReadout" Text="No crop yet" />
+                            <Button Content="Apply crop" Style="{StaticResource AccentButtonStyle}" Click="ApplyCrop_Click" />
+                        </StackPanel>
+
+                        <StackPanel x:Name="PanelUpscale" Spacing="10" Visibility="Collapsed">
+                            <TextBlock Text="Upscale" FontSize="22" FontWeight="SemiBold" />
+                            <TextBlock TextWrapping="Wrap" Foreground="{StaticResource StudioMutedBrush}" Text="Super resolution sharpens and enlarges on the NPU, up to 8×. Sharpen keeps the current size." />
+                            <TextBlock x:Name="UpscaleReadout" TextWrapping="Wrap" />
+                            <Button Content="Sharpen" Style="{StaticResource QuietButtonStyle}" Click="Sharpen_Click" />
+                            <Button Content="Scale 2×" Style="{StaticResource AccentButtonStyle}" Click="Scale2_Click" />
+                            <Button Content="Scale 4×" Style="{StaticResource QuietButtonStyle}" Click="Scale4_Click" />
+                        </StackPanel>
+
+                        <StackPanel x:Name="PanelCutout" Spacing="10" Visibility="Collapsed">
+                            <TextBlock Text="Cutout" FontSize="22" FontWeight="SemiBold" />
+                            <TextBlock TextWrapping="Wrap" Foreground="{StaticResource StudioMutedBrush}" Text="The NPU separates the subject from the background." />
+                            <ComboBox x:Name="BackgroundChoice" Header="Background" SelectedIndex="0" HorizontalAlignment="Stretch">
+                                <x:String>Transparent</x:String>
+                                <x:String>White</x:String>
+                                <x:String>Black</x:String>
+                                <x:String>Warm gray</x:String>
+                                <x:String>Blur</x:String>
+                            </ComboBox>
+                            <Button Content="Remove background" Style="{StaticResource AccentButtonStyle}" Click="Cutout_Click" />
+                        </StackPanel>
+
+                        <StackPanel x:Name="PanelSelect" Spacing="10" Visibility="Collapsed">
+                            <TextBlock Text="Select" FontSize="22" FontWeight="SemiBold" />
+                            <TextBlock TextWrapping="Wrap" Foreground="{StaticResource StudioMutedBrush}" Text="Click the object to include it. Right-click a spot to exclude it. Drag a box to enclose it." />
+                            <TextBlock x:Name="SelectReadout" Text="No hints yet" TextWrapping="Wrap" />
+                            <Button Content="Find object" Style="{StaticResource AccentButtonStyle}" Click="FindObject_Click" />
+                            <Button Content="Cut out selection" Style="{StaticResource QuietButtonStyle}" Click="CutSelection_Click" />
+                            <Button Content="Erase selection" Style="{StaticResource QuietButtonStyle}" Click="EraseSelection_Click" />
+                            <Button Content="Clear hints" Style="{StaticResource QuietButtonStyle}" Click="ClearSelect_Click" />
+                        </StackPanel>
+
+                        <StackPanel x:Name="PanelErase" Spacing="10" Visibility="Collapsed">
+                            <TextBlock Text="Erase" FontSize="22" FontWeight="SemiBold" />
+                            <TextBlock TextWrapping="Wrap" Foreground="{StaticResource StudioMutedBrush}" Text="Paint over what should disappear. The NPU fills the painted area with the surrounding background." />
+                            <TextBlock Text="Brush size" Foreground="{StaticResource StudioMutedBrush}" />
+                            <Slider x:Name="BrushSlider" Minimum="8" Maximum="120" Value="36" />
+                            <Button Content="Erase painted area" Style="{StaticResource AccentButtonStyle}" Click="ErasePaint_Click" />
+                            <Button Content="Clear paint" Style="{StaticResource QuietButtonStyle}" Click="ClearPaint_Click" />
+                        </StackPanel>
+
+                        <StackPanel x:Name="PanelDescribe" Spacing="10" Visibility="Collapsed">
+                            <TextBlock Text="Describe" FontSize="22" FontWeight="SemiBold" />
+                            <ComboBox x:Name="DescribeKind" Header="Style" SelectedIndex="0" HorizontalAlignment="Stretch">
+                                <x:String>Brief</x:String>
+                                <x:String>Detailed</x:String>
+                                <x:String>Diagram</x:String>
+                                <x:String>Accessible</x:String>
+                            </ComboBox>
+                            <Button Content="Describe photo" Style="{StaticResource AccentButtonStyle}" Click="Describe_Click" />
+                            <TextBox x:Name="DescribeOutput" AcceptsReturn="True" IsReadOnly="True" TextWrapping="Wrap" MinHeight="160" />
+                            <Button Content="Copy text" Style="{StaticResource QuietButtonStyle}" Click="CopyDescribe_Click" />
+                        </StackPanel>
+
+                        <StackPanel x:Name="PanelText" Spacing="10" Visibility="Collapsed">
+                            <TextBlock Text="Text" FontSize="22" FontWeight="SemiBold" />
+                            <TextBlock TextWrapping="Wrap" Foreground="{StaticResource StudioMutedBrush}" Text="Reads words out of the photo on the NPU." />
+                            <Button Content="Read text" Style="{StaticResource AccentButtonStyle}" Click="ReadText_Click" />
+                            <TextBox x:Name="TextOutput" AcceptsReturn="True" IsReadOnly="True" TextWrapping="Wrap" MinHeight="180" />
+                            <Button Content="Copy text" Style="{StaticResource QuietButtonStyle}" Click="CopyText_Click" />
+                        </StackPanel>
+
+                        <StackPanel x:Name="PanelCreate" Spacing="10" Visibility="Collapsed">
+                            <TextBlock Text="Create" FontSize="22" FontWeight="SemiBold" />
+                            <TextBlock TextWrapping="Wrap" Foreground="{StaticResource StudioMutedBrush}" Text="Text-to-image, restyle, coloring-book, and masked fill run on the NPU. The image model downloads the first time you use it. Windows keeps a medium safety filter. If it blocks one picture, the app tries a new seed." />
+                            <TextBox x:Name="PromptBox" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="90" PlaceholderText="A sunlit desk by a window, film still" />
+                            <TextBlock Text="Steps" Foreground="{StaticResource StudioMutedBrush}" />
+                            <Slider x:Name="StepsSlider" Minimum="2" Maximum="8" Value="4" StepFrequency="1" SnapsTo="StepValues" />
+                            <TextBlock Text="Creativity" Foreground="{StaticResource StudioMutedBrush}" />
+                            <Slider x:Name="CreativitySlider" Minimum="0" Maximum="1" Value="0.7" StepFrequency="0.05" />
+                            <TextBlock Text="Keep original color" Foreground="{StaticResource StudioMutedBrush}" />
+                            <Slider x:Name="ColorKeepSlider" Minimum="0" Maximum="1" Value="0.6" StepFrequency="0.05" />
+                            <TextBox x:Name="SeedBox" Header="Seed (blank for a new one)" />
+                            <Button Content="Generate" Style="{StaticResource AccentButtonStyle}" Click="Generate_Click" />
+                            <Button Content="Restyle this photo" Style="{StaticResource QuietButtonStyle}" Click="Restyle_Click" />
+                            <Button Content="Coloring book" Style="{StaticResource QuietButtonStyle}" Click="Coloring_Click" />
+                            <Button Content="Fill painted area" Style="{StaticResource QuietButtonStyle}" Click="FillPaint_Click" />
+                        </StackPanel>
+
+                        <StackPanel x:Name="PanelMotion" Spacing="10" Visibility="Collapsed">
+                            <TextBlock Text="Motion" FontSize="22" FontWeight="SemiBold" />
+                            <TextBlock TextWrapping="Wrap" Text="This laptop can sharpen an existing video of people with video super resolution. It cannot invent a clip from a sentence. Open text-to-video models are too large for 16 GB of shared memory, and Windows does not ship one for the Hexagon NPU. Photo generation, restyle, and fill are the generative tools in this version. Video enhance can be added later on top of the video super-resolution model, whose status is listed on the Studio page." />
+                        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+
+        <Grid Grid.Row="2" Background="{StaticResource StudioPanelBrush}" BorderBrush="{StaticResource StudioLineBrush}" BorderThickness="0,1,0,0" Padding="16,0">
+            <TextBlock x:Name="StatusText" VerticalAlignment="Center" Foreground="{StaticResource StudioMutedBrush}" Text="Hexagon NPU · Snapdragon X Elite · offline" />
+        </Grid>
+    </Grid>
+</Window>

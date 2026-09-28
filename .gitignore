@@ -1,0 +1,26 @@
+bin/
+obj/
+AppPackages/
+BundleArtifacts/
+.vs/
+
+# Visual Studio user state
+*.user
+*.suo
+*.userosscache
+*.rsuser
+*.pubxml.user
+
+# Local MSIX signing key. The password is in the project file; the private key stays on this machine.
+*.pfx
+
+# Package build outputs
+*.msix
+*.msixbundle
+*.msixupload
+*.appx
+*.appxbundle
+*.appxupload
+*.cer
+
+src/SurfaceAIStudio/studio.log
